@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from langchain.agents import create_agent
 from langchain.tools import tool
 from typing import Dict, Any
 from tavily import TavilyClient
@@ -24,8 +25,6 @@ Using the web search tool, search the web for recipes that can be made with the 
 Return recipe suggestions and eventually the recipe instructions to the user, if requested.
 
 """
-
-from langchain.agents import create_agent
 
 agent = create_agent(
     model="gpt-5-nano",
