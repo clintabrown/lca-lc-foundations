@@ -98,6 +98,7 @@ Only after update_state succeeds, delegate to your specialists for flights, venu
 Once you have received their answers, coordinate the perfect wedding for the user.
 """
 
+
 class WeddingState(AgentState):
     """Mutable workflow state shared by the coordinator and its tools."""
 
@@ -106,11 +107,13 @@ class WeddingState(AgentState):
     guest_count: NotRequired[int]
     genre: NotRequired[str]
 
+
 class WeddingContext(BaseModel):
     """Immutable per-run context."""
 
     user_id: str = Field(default="demo-user", min_length=1)
     budget: int | None = Field(default=None, ge=0)
+
 
 class WeddingPlan(BaseModel):
     """Structured final response from the coordinator."""
@@ -140,12 +143,14 @@ class WeddingPlan(BaseModel):
         description="Any important caveats, assumptions, or next steps.",
     )
 
+
 def configure_logging() -> None:
     """Configure application logging without doing work at import time."""
     logging.basicConfig(
         level=os.environ.get("LOG_LEVEL", "INFO").upper(),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
 
 def _require_env(name: str) -> str:
     value = os.environ.get(name)
@@ -155,6 +160,7 @@ def _require_env(name: str) -> str:
             f"Copy example.env to .env and set it."
         )
     return value
+
 
 def message_text(message: AnyMessage) -> str:
     """Extract text from a message whose content may be a string or content blocks."""
@@ -179,6 +185,7 @@ def message_text(message: AnyMessage) -> str:
         return text
     return str(content)
 
+
 def _is_transient_mcp_exception(exc: BaseException) -> bool:
     """Return True for transport-style failures that are worth retrying."""
     if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
@@ -187,6 +194,7 @@ def _is_transient_mcp_exception(exc: BaseException) -> bool:
     # module avoids importing those packages directly in this example.
     module = type(exc).__module__.split(".", 1)[0]
     return module in {"httpx", "httpcore", "anyio"}
+
 
 def _mcp_error_result(tool_name: str, error: object) -> CallToolResult:
     return CallToolResult(
@@ -201,6 +209,7 @@ def _mcp_error_result(tool_name: str, error: object) -> CallToolResult:
         ],
         isError=True,
     )
+
 
 @dataclass(frozen=True, slots=True)
 class RetryMCPInterceptor:
@@ -265,6 +274,7 @@ class RetryMCPInterceptor:
             f"failed after {self.max_attempts} attempts",
         )
 
+
 def _should_retry_model_error(exc: Exception) -> bool:
     """Retry transient model failures, but not quota or auth errors."""
     text = str(exc).lower()
@@ -279,6 +289,7 @@ def _should_retry_model_error(exc: Exception) -> bool:
         "free-models-per-day",
     )
     return not any(marker in text for marker in non_retryable)
+
 
 def model_failure_message(exc: Exception) -> str:
     """Turn a model-call failure into an actionable message."""
@@ -307,6 +318,7 @@ def model_failure_message(exc: Exception) -> str:
         )
     return f"Wedding planner failed: {detail}"
 
+
 def _retry_middleware() -> ModelRetryMiddleware:
     """Build model retry middleware that fails fast on quota/auth errors."""
     return ModelRetryMiddleware(
@@ -316,6 +328,7 @@ def _retry_middleware() -> ModelRetryMiddleware:
         # Re-raise so ``main`` can print one clear, actionable error.
         on_failure="error",
     )
+
 
 def build_openrouter_client() -> Any:
     """Build an OpenRouter SDK client with retries disabled.
@@ -342,6 +355,7 @@ def build_openrouter_client() -> Any:
         ),
     )
 
+
 def build_model() -> BaseChatModel:
     """Build the shared chat model."""
     model_name = os.environ.get("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
@@ -362,15 +376,19 @@ def build_model() -> BaseChatModel:
         ),
     )
 
+
 def build_database() -> SQLDatabase:
     """Open the Chinook database in read-only mode."""
-    from langchain_community.utilities import SQLDatabase  # sunset package; see pyproject
+    from langchain_community.utilities import (
+        SQLDatabase,
+    )  # sunset package; see pyproject
 
     db_path = Path(__file__).resolve().parent / "resources" / "Chinook.db"
     if not db_path.is_file():
         raise FileNotFoundError(f"Chinook database not found at {db_path}")
     engine = create_engine(f"sqlite:///file:{db_path}?mode=ro&uri=true")
     return SQLDatabase(engine)
+
 
 def build_mcp_client() -> MultiServerMCPClient:
     """Build the MCP client with retry and transport timeouts."""
@@ -387,6 +405,7 @@ def build_mcp_client() -> MultiServerMCPClient:
         handle_tool_errors=True,
     )
 
+
 def build_web_search() -> BaseTool:
     """Build the Tavily web-search tool."""
     _require_env("TAVILY_API_KEY")
@@ -401,6 +420,7 @@ def build_web_search() -> BaseTool:
         include_raw_content=False,
         handle_tool_error=True,
     )
+
 
 def build_sql_tools(db: SQLDatabase) -> list[BaseTool]:
     """Build narrow, read-only SQL tools for the playlist specialist."""
@@ -455,6 +475,7 @@ def build_sql_tools(db: SQLDatabase) -> list[BaseTool]:
 
     return [list_tables, get_schema, query_playlist_db]
 
+
 def build_travel_agent(
     model: BaseChatModel,
     mcp_tools: list[BaseTool],
@@ -466,6 +487,7 @@ def build_travel_agent(
         system_prompt=TRAVEL_PROMPT,
         name="travel_agent",
     )
+
 
 def build_venue_agent(model: BaseChatModel) -> CompiledStateGraph:
     return create_agent(
@@ -483,6 +505,7 @@ def build_venue_agent(model: BaseChatModel) -> CompiledStateGraph:
         name="venue_agent",
     )
 
+
 def build_playlist_agent(model: BaseChatModel, db: SQLDatabase) -> CompiledStateGraph:
     return create_agent(
         model=model,
@@ -491,6 +514,7 @@ def build_playlist_agent(model: BaseChatModel, db: SQLDatabase) -> CompiledState
         system_prompt=PLAYLIST_PROMPT,
         name="playlist_agent",
     )
+
 
 async def _invoke_specialist(
     agent: CompiledStateGraph,
@@ -512,6 +536,7 @@ async def _invoke_specialist(
             f"{tag} timed out after {SPECIALIST_TIMEOUT_SECONDS:.0f} seconds"
         ) from exc
     return message_text(response["messages"][-1])
+
 
 @tool
 def update_state(
@@ -542,6 +567,7 @@ def update_state(
             ],
         }
     )
+
 
 async def build_coordinator(
     model: BaseChatModel,
@@ -612,6 +638,7 @@ async def build_coordinator(
         name="wedding_coordinator",
     )
 
+
 async def main() -> int:
     configure_logging()
     try:
@@ -658,6 +685,7 @@ async def main() -> int:
         file=sys.stderr,
     )
     return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main()))

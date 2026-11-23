@@ -22,13 +22,8 @@ from mcp.shared.exceptions import McpError
 from mcp.types import CallToolResult, ErrorData, TextContent
 
 MODULE_DIR = Path(__file__).resolve().parents[1] / "notebooks" / "module-2"
-AGENT_PATH = next(
-    path
-    for path in (
-        MODULE_DIR / "wedding_planner.py"
-    )
-    if path.is_file()
-)
+AGENT_PATH = MODULE_DIR / "wedding_planner.py"
+assert AGENT_PATH.is_file(), f"Wedding planner not found at {AGENT_PATH}"
 SPEC = importlib.util.spec_from_file_location("wedding_agent", AGENT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 agent = importlib.util.module_from_spec(SPEC)
@@ -148,9 +143,7 @@ class ModelFailureTests(unittest.TestCase):
         self.assertTrue(agent._should_retry_model_error(TimeoutError("timed out")))
 
     def test_quota_message_is_actionable(self) -> None:
-        message = agent.model_failure_message(
-            RuntimeError("429 free-models-per-day")
-        )
+        message = agent.model_failure_message(RuntimeError("429 free-models-per-day"))
         self.assertIn("free-model daily limit", message)
         self.assertIn("00:00 UTC", message)
 

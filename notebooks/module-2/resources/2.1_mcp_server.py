@@ -7,7 +7,6 @@ from tavily import TavilyClient
 from typing import Dict, Any
 from requests import get
 
-
 mcp = FastMCP("mcp_server")
 
 tavily_client = TavilyClient()
@@ -17,9 +16,7 @@ tavily_client = TavilyClient()
 @mcp.tool()
 def search_web(query: str) -> Dict[str, Any]:
     """Search the web for information"""
-
     results = tavily_client.search(query)
-
     return results
 
 
@@ -28,7 +25,6 @@ def search_web(query: str) -> Dict[str, Any]:
 def github_file():
     """
     Resource for accessing langchain-ai/langchain-mcp-adapters/README.md file
-
     """
     url = f"https://raw.githubusercontent.com/langchain-ai/langchain-mcp-adapters/main/README.md"
     try:
@@ -55,6 +51,7 @@ def prompt():
 
     You may also ask clarifying questions to the user to better understand their question.
     """
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
