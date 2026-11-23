@@ -2,12 +2,20 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-
-load_dotenv()
-
+from langchain.agents import AgentState, create_agent
+from langchain.chat_models import init_chat_model
+from langchain.messages import HumanMessage, ToolMessage
+from langchain.tools import ToolRuntime
+from langgraph.types import Command
+from langchain_community.utilities import SQLDatabase
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.tools import tool
 from mcp.shared.exceptions import McpError
 from mcp.types import CallToolResult, TextContent
+from tavily import TavilyClient
+from typing import Dict, Any
+
+load_dotenv()
 
 RETRYABLE_MCP_CODES = {-32603}
 
@@ -62,10 +70,6 @@ client = MultiServerMCPClient(
 
 tools = asyncio.run(client.get_tools())
 
-from typing import Dict, Any
-from tavily import TavilyClient
-from langchain.tools import tool
-
 tavily_client = TavilyClient()
 
 @tool
@@ -82,8 +86,6 @@ def web_search(query: str, search_number: int, max_search_number: int) -> Dict[s
     except Exception as e:
         return {"error": str(e)}
 
-from langchain_community.utilities import SQLDatabase
-
 db = SQLDatabase.from_uri("sqlite:///resources/Chinook.db")
 
 @tool
@@ -95,16 +97,11 @@ def query_playlist_db(query: str) -> str:
     except Exception as e:
         return f"Error querying database: {e}"
 
-from langchain.agents import AgentState
-
 class WeddingState(AgentState):
     origin: str
     destination: str
     guest_count: str
     genre: str
-
-from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model
 
 # OpenRouter's free router picks an available zero-cost model per request.
 # Pin a specific free model with e.g. OPENROUTER_MODEL="nvidia/nemotron-3.5-lightning:free".
@@ -145,8 +142,8 @@ venue_agent = create_agent(
     - Reviews (highest)
     You may need to make multiple searches to iteratively find the best options. 
     You have a suggested limit of 12 web searches. Count every web_search call you make.
-    After 12 searches, you should stop searching and summarize the best options you have
     found so far.
+    After 12 searches, you should stop searching and summarize the best options you have
     """   
 )
 
@@ -163,10 +160,6 @@ playlist_agent = create_agent(
     This is a SQLite database. Before writing any data queries, first discover the schema.
     """
 )
-
-from langchain.tools import ToolRuntime
-from langchain.messages import HumanMessage, ToolMessage
-from langgraph.types import Command
 
 @tool
 async def search_flights(runtime: ToolRuntime) -> str:
@@ -206,8 +199,6 @@ def update_state(origin: str, destination: str, guest_count: str, genre: str, ru
         "messages": [ToolMessage("Successfully updated state", tool_call_id=runtime.tool_call_id)]}
         )
 
-from langchain.agents import create_agent
-
 coordinator = create_agent(
     model=MODEL,
     tools=[search_flights, search_venues, suggest_playlist, update_state],
@@ -220,8 +211,6 @@ coordinator = create_agent(
     Once you have received their answers, coordinate the perfect wedding for me.
     """
 )
-
-from langchain.messages import HumanMessage
 
 response = asyncio.run(coordinator.ainvoke(
     {
